@@ -26,6 +26,7 @@ const FEE_RATE_FAST_MULTIPLIER = 2.0
 export default class WalletManagerTron {
   #seedBuffer
   #tronWeb
+  #accounts
 
   /**
    * Creates a new wallet manager for tron blockchains.
@@ -35,6 +36,7 @@ export default class WalletManagerTron {
    */
   constructor (seedBuffer, config = {}) {
     this.#seedBuffer = seedBuffer
+    this.#accounts = new Set()
 
     const { rpcUrl } = config
 
@@ -86,7 +88,9 @@ export default class WalletManagerTron {
    * @returns {Promise<WalletAccountTron>} The account.
    */
   async getAccount (index = 0) {
-    return await this.getAccountByPath(`0'/0/${index}`)
+    const account = await this.getAccountByPath(`0'/0/${index}`)
+    this.#accounts.add(account)
+    return account
   }
 
   /**
@@ -99,9 +103,11 @@ export default class WalletManagerTron {
    * @returns {Promise<WalletAccountTron>} The account.
    */
   async getAccountByPath (path) {
-    return new WalletAccountTron(this.#seedBuffer, path, {
+    const account = new WalletAccountTron(this.#seedBuffer, path, {
       rpcUrl: this.#tronWeb.fullNode.host
     })
+    this.#accounts.add(account)
+    return account
   }
 
   /**
@@ -140,6 +146,9 @@ export default class WalletManagerTron {
    * Close the wallet manager and erase the seed buffer.
    */
   close () {
+    for (const account of this.#accounts) account.close()
+    this.#accounts.clear()
+
     sodium.sodium_memzero(this.#seedBuffer)
 
     this.#seedBuffer = null
