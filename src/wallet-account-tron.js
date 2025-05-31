@@ -166,33 +166,25 @@ export default class WalletAccountTron {
       const { to, value } = tx
       const from = await this.getAddress()
 
-      console.log('Building transaction...')
       // Create the transaction
       const transaction = await this.#tronWeb.transactionBuilder.sendTrx(
         to,
         value,
         from
       )
-      console.log('Transaction built:', transaction)
 
-      console.log('Signing transaction...')
       // Sign using our custom wallet's signTransaction method
       const signedTransaction = await this.#wallet.signTransaction(transaction)
-      console.log('Transaction signed:', signedTransaction)
 
-      console.log('Broadcasting transaction...')
       // Broadcast the transaction
       const result = await this.#tronWeb.trx.sendRawTransaction(signedTransaction)
-      console.log('Broadcast result:', result)
 
       if (!result || !result.result) {
-        console.log('Transaction failed with result:', result)
         throw new Error(result ? result.code || JSON.stringify(result) : 'Empty response from network')
       }
 
       return result.txid
     } catch (error) {
-      console.log('Full error details:', error)
       throw new Error(`Failed to send transaction: ${error.message || JSON.stringify(error)}`)
     }
   }
