@@ -112,13 +112,17 @@ export default class WalletAccountTron {
     }
   }
 
+  get address () {
+    return this.#tronWeb.address.fromHex(this.#signingKey.compressedPublicKey)
+  }
+
   /**
    * Returns the account's address.
    *
    * @returns {Promise<string>} The account's address.
    */
   async getAddress () {
-    return this.#tronWeb.address.fromHex(this.#signingKey.compressedPublicKey)
+    return this.address
   }
 
   /**
