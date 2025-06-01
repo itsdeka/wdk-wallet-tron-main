@@ -52,7 +52,6 @@ export default class WalletAccountTron {
   #privateKeyBuffer
   #hmacOutputBuffer
   #derivationDataBuffer
-  #backupBuffer
 
   /**
    * Creates a new tron wallet account.
@@ -75,7 +74,6 @@ export default class WalletAccountTron {
     this.#privateKeyBuffer = new Uint8Array(32)
     this.#hmacOutputBuffer = new Uint8Array(64)
     this.#derivationDataBuffer = new Uint8Array(37)
-    this.#backupBuffer = new Uint8Array(32)
 
     derivePrivateKeyBuffer(seedBuffer, this.#privateKeyBuffer, this.#hmacOutputBuffer, this.#derivationDataBuffer, fullPath)
 
@@ -373,12 +371,10 @@ export default class WalletAccountTron {
     sodium.sodium_memzero(this.#privateKeyBuffer)
     sodium.sodium_memzero(this.#hmacOutputBuffer)
     sodium.sodium_memzero(this.#derivationDataBuffer)
-    sodium.sodium_memzero(this.#backupBuffer)
 
     this.#privateKeyBuffer = null
     this.#hmacOutputBuffer = null
     this.#derivationDataBuffer = null
-    this.#backupBuffer = null
     this.#signingKey = null
     this.#tronWeb = null
   }
