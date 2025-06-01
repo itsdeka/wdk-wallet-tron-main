@@ -39,6 +39,15 @@ export default class WalletAccountTron {
      */
     sign(message: string): Promise<string>;
     /**
+     * Signs a typed data message.
+     *
+     * @param {string} Permit712MessageDomain - The domain of the message.
+     * @param {string} Permit712MessageTypes - The types of the message.
+     * @param {string} message - The message to sign.
+     * @returns {Promise<string>} The message's signature.
+     */
+    signTypedData(Permit712MessageDomain: string, Permit712MessageTypes: string, message: string): Promise<string>;
+    /**
      * Verifies a message's signature.
      *
      * @param {string} message - The original message.
