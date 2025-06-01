@@ -15,8 +15,11 @@
 'use strict'
 
 import TronWeb from 'tronweb'
+import { getBytesCopy } from 'ethers'
 import sodium from 'sodium-universal'
-import { CustomTronHDWallet } from './custom-hdwallet.js'
+import { keccak_256 as keccak256 } from '@noble/hashes/sha3'
+import { CustomSigningKey } from './signer/custom-signing-key.js'
+import { derivePrivateKeyBuffer } from './signer/utils.js'
 
 /**
  * @typedef {Object} KeyPair
@@ -43,7 +46,7 @@ import { CustomTronHDWallet } from './custom-hdwallet.js'
 const BIP_44_TRON_DERIVATION_PATH_PREFIX = "m/44'/195'"
 
 export default class WalletAccountTron {
-  #wallet
+  #signingKey
   #path
   #tronWeb
   #privateKeyBuffer
@@ -74,16 +77,9 @@ export default class WalletAccountTron {
     this.#derivationDataBuffer = new Uint8Array(37)
     this.#backupBuffer = new Uint8Array(32)
 
-    // Create HD wallet
-    this.#wallet = CustomTronHDWallet.fromSeed(
-      seedBuffer,
-      this.#tronWeb,
-      this.#privateKeyBuffer,
-      this.#hmacOutputBuffer,
-      this.#derivationDataBuffer,
-      this.#backupBuffer,
-      fullPath
-    )
+    derivePrivateKeyBuffer(seedBuffer, this.#privateKeyBuffer, this.#hmacOutputBuffer, this.#derivationDataBuffer, fullPath)
+
+    this.#signingKey = new CustomSigningKey(this.#privateKeyBuffer)
   }
 
   /**
@@ -111,9 +107,28 @@ export default class WalletAccountTron {
    */
   get keyPair () {
     return {
-      privateKey: this.#wallet.signingKey.privateKeyBuffer,
-      publicKey: this.#wallet.getPublicKey()
+      privateKey: this.#privateKeyBuffer,
+      publicKey: getBytesCopy(this.#signingKey.publicKey)
     }
+  }
+
+  /**
+   * The account's address.
+   *
+   * @type {string}
+   */
+  get address () {
+    const pubKey = this.#signingKey.publicKey
+    // Remove the prefix byte (0x04) from uncompressed public key
+    const pubKeyNoPrefix = pubKey.slice(1)
+    // Compute keccak-256 hash
+    const hash = keccak256(pubKeyNoPrefix)
+    // Take last 20 bytes
+    const ethAddress = hash.slice(12)
+    // Convert to hex
+    const ethAddressHex = '41' + Buffer.from(ethAddress).toString('hex')
+    // Convert to base58
+    return this.#tronWeb.address.fromHex(ethAddressHex)
   }
 
   /**
@@ -122,7 +137,7 @@ export default class WalletAccountTron {
    * @returns {Promise<string>} The account's address.
    */
   async getAddress () {
-    return this.#wallet.getAddress()
+    return this.address
   }
 
   /**
@@ -132,7 +147,22 @@ export default class WalletAccountTron {
    * @returns {Promise<string>} The message's signature.
    */
   async sign (message) {
-    return await this.#wallet.sign(message)
+    const messageBytes = typeof message === 'string'
+      ? new TextEncoder().encode(message)
+      : message
+
+    // Create TIP-191 prefix
+    const prefix = new TextEncoder().encode('\x19TRON Signed Message:\n' + messageBytes.length)
+    const prefixedMessage = new Uint8Array(prefix.length + messageBytes.length)
+    prefixedMessage.set(prefix)
+    prefixedMessage.set(messageBytes, prefix.length)
+
+    // Hash the prefixed message
+    const messageHash = keccak256(prefixedMessage)
+
+    const signature = this.#signingKey.sign(messageHash)
+
+    return signature
   }
 
   /**
@@ -144,7 +174,8 @@ export default class WalletAccountTron {
    * @returns {Promise<string>} The message's signature.
    */
   async signTypedData (Permit712MessageDomain, Permit712MessageTypes, message) {
-    return await this.#wallet.signTypedData(Permit712MessageDomain, Permit712MessageTypes, message)
+    const messageDigest = this.#tronWeb.utils._TypedDataEncoder.hash(Permit712MessageDomain, Permit712MessageTypes, message)
+    return this.#signingKey.sign(messageDigest.slice(2))
   }
 
   /**
@@ -155,9 +186,12 @@ export default class WalletAccountTron {
    * @returns {Promise<boolean>} True if the signature is valid.
    */
   async verify (message, signature) {
-    const recoveredAddress = await this.#tronWeb.trx.verifyMessageV2(message, signature)
-    const address = await this.getAddress()
-    return recoveredAddress === address
+    try {
+      await this.#tronWeb.trx.verifyMessageV2(message, signature)
+      return true
+    } catch (_) {
+      return false
+    }
   }
 
   /**
@@ -186,7 +220,7 @@ export default class WalletAccountTron {
       )
 
       // Sign using our custom wallet's signTransaction method
-      const signedTransaction = await this.#wallet.signTransaction(transaction)
+      const signedTransaction = await this.#signTransaction(transaction)
 
       // Broadcast the transaction
       const result = await this.#tronWeb.trx.sendRawTransaction(signedTransaction)
@@ -305,6 +339,32 @@ export default class WalletAccountTron {
     }
   }
 
+  async #signTransaction (transaction) {
+    if (transaction.raw_data) {
+      // This is a regular TRX transfer
+      const signature = await this.#signingKey.sign(
+        transaction.txID
+      )
+      transaction.signature = [signature]
+      return transaction
+    }
+
+    // This is a smart contract call
+    const rawTx = await this.#tronWeb.transactionBuilder.triggerSmartContract(
+      transaction.to,
+      transaction.functionSelector,
+      transaction.options,
+      transaction.parameters,
+      transaction.issuerAddress
+    )
+
+    const signature = await this.#signingKey.sign(
+      rawTx
+    )
+    transaction.signature = [signature]
+    return transaction
+  }
+
   /**
    * Close the wallet account, erase all sensitive buffers, and cleanup provider connections.
    * @returns {Promise<void>}
@@ -319,7 +379,7 @@ export default class WalletAccountTron {
     this.#hmacOutputBuffer = null
     this.#derivationDataBuffer = null
     this.#backupBuffer = null
-    this.#wallet = null
+    this.#signingKey = null
     this.#tronWeb = null
   }
 }

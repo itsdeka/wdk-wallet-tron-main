@@ -15,20 +15,13 @@
 'use strict'
 
 import { secp256k1 } from '@noble/curves/secp256k1'
-import { keccak_256 as keccak256 } from '@noble/hashes/sha3'
 import { SigningKey } from 'ethers'
-import TronWeb from 'tronweb'
 
-// Default TronWeb instance for address computation
-const defaultTronWeb = new TronWeb({
-  fullHost: 'https://api.trongrid.io'
-})
-
-export class CustomTronSigningKey extends SigningKey {
+export class CustomSigningKey extends SigningKey {
   #privateKeyBuffer
   #tronWeb
 
-  constructor (privateKeyBuffer, tronWeb = defaultTronWeb) {
+  constructor (privateKeyBuffer) {
     if (!(privateKeyBuffer instanceof Uint8Array)) {
       throw new Error('privateKeyBuffer must be a Uint8Array')
     }
@@ -41,33 +34,18 @@ export class CustomTronSigningKey extends SigningKey {
     super('0x0000000000000000000000000000000000000000000000000000000000000000')
 
     this.#privateKeyBuffer = privateKeyBuffer
-    this.#tronWeb = tronWeb
   }
 
-  get privateKeyBuffer () {
-    return this.#privateKeyBuffer
+  get compressedPublicKey () {
+    return secp256k1.getPublicKey(this.#privateKeyBuffer, true)
   }
 
-  getPublicKey (compressed = true) {
-    return secp256k1.getPublicKey(this.#privateKeyBuffer, compressed)
+  get publicKey () {
+    return secp256k1.getPublicKey(this.#privateKeyBuffer, false)
   }
 
   sign (message) {
     const signature = secp256k1.sign(message, this.#privateKeyBuffer)
     return '0x' + signature.r.toString(16).padStart(64, '0') + signature.s.toString(16).padStart(64, '0') + (signature.recovery ? '1c' : '1b')
-  }
-
-  computeAddress () {
-    const pubKey = this.getPublicKey(false)
-    // Remove the prefix byte (0x04) from uncompressed public key
-    const pubKeyNoPrefix = pubKey.slice(1)
-    // Compute keccak-256 hash
-    const hash = keccak256(pubKeyNoPrefix)
-    // Take last 20 bytes
-    const ethAddress = hash.slice(12)
-    // Convert to hex
-    const ethAddressHex = '41' + Buffer.from(ethAddress).toString('hex')
-    // Convert to base58
-    return this.#tronWeb.address.fromHex(ethAddressHex)
   }
 }
