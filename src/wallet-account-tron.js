@@ -112,8 +112,22 @@ export default class WalletAccountTron {
     }
   }
 
+  /**
+   * The account's address.
+   *
+   * @type {string}
+   */
   get address () {
-    return this.#tronWeb.address.fromHex(this.#signingKey.compressedPublicKey)
+    // Hash the public key with keccak256
+    const hashed = keccak256(this.#signingKey.publicKey)
+    
+    // Take last 20 bytes and prepend Tron's address prefix (0x41)
+    const addressBytes = new Uint8Array(21)
+    addressBytes[0] = 0x41 // Tron address prefix
+    addressBytes.set(hashed.slice(-20), 1)
+    
+    // Convert to hex string
+    return this.#tronWeb.address.fromHex('41' + Buffer.from(addressBytes.slice(1)).toString('hex'))
   }
 
   /**
