@@ -14,21 +14,19 @@
 
 'use strict'
 
-import { secp256k1 } from '@noble/curves/secp256k1'
-import { keccak_256 as keccak256 } from '@noble/hashes/sha3'
+import * as secp256k1 from '@noble/secp256k1'
+import { hmac } from '@noble/hashes/hmac'
+import { sha256 } from '@noble/hashes/sha256'
 import { SigningKey } from 'ethers'
-import TronWeb from 'tronweb'
 
-// Default TronWeb instance for address computation
-const defaultTronWeb = new TronWeb({
-  fullHost: 'https://api.trongrid.io'
-})
+// Setup synchronous signing
+secp256k1.etc.hmacSha256Sync = (key, ...messages) =>
+  hmac(sha256, key, secp256k1.etc.concatBytes(...messages))
 
-export class CustomTronSigningKey extends SigningKey {
+export class CustomSigningKey extends SigningKey {
   #privateKeyBuffer
-  #tronWeb
 
-  constructor (privateKeyBuffer, tronWeb = defaultTronWeb) {
+  constructor (privateKeyBuffer) {
     if (!(privateKeyBuffer instanceof Uint8Array)) {
       throw new Error('privateKeyBuffer must be a Uint8Array')
     }
@@ -41,33 +39,18 @@ export class CustomTronSigningKey extends SigningKey {
     super('0x0000000000000000000000000000000000000000000000000000000000000000')
 
     this.#privateKeyBuffer = privateKeyBuffer
-    this.#tronWeb = tronWeb
   }
 
-  get privateKeyBuffer () {
-    return this.#privateKeyBuffer
+  get publicKey () {
+    return SigningKey.computePublicKey(this.#privateKeyBuffer)
   }
 
-  getPublicKey (compressed = true) {
-    return secp256k1.getPublicKey(this.#privateKeyBuffer, compressed)
+  get compressedPublicKey () {
+    return SigningKey.computePublicKey(this.#privateKeyBuffer, true)
   }
 
   sign (message) {
     const signature = secp256k1.sign(message, this.#privateKeyBuffer)
     return '0x' + signature.r.toString(16).padStart(64, '0') + signature.s.toString(16).padStart(64, '0') + (signature.recovery ? '1c' : '1b')
-  }
-
-  computeAddress () {
-    const pubKey = this.getPublicKey(false)
-    // Remove the prefix byte (0x04) from uncompressed public key
-    const pubKeyNoPrefix = pubKey.slice(1)
-    // Compute keccak-256 hash
-    const hash = keccak256(pubKeyNoPrefix)
-    // Take last 20 bytes
-    const ethAddress = hash.slice(12)
-    // Convert to hex
-    const ethAddressHex = '41' + Buffer.from(ethAddress).toString('hex')
-    // Convert to base58
-    return this.#tronWeb.address.fromHex(ethAddressHex)
   }
 }
