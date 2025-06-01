@@ -14,17 +14,12 @@
 
 'use strict'
 
-import * as secp256k1 from '@noble/secp256k1'
-import { hmac } from '@noble/hashes/hmac'
-import { sha256 } from '@noble/hashes/sha2'
+import { secp256k1 } from '@noble/curves/secp256k1'
 import { SigningKey } from 'ethers'
-
-// Setup synchronous signing
-secp256k1.etc.hmacSha256Sync = (key, ...messages) =>
-  hmac(sha256, key, secp256k1.etc.concatBytes(...messages))
 
 export class CustomSigningKey extends SigningKey {
   #privateKeyBuffer
+  #tronWeb
 
   constructor (privateKeyBuffer) {
     if (!(privateKeyBuffer instanceof Uint8Array)) {
@@ -41,12 +36,12 @@ export class CustomSigningKey extends SigningKey {
     this.#privateKeyBuffer = privateKeyBuffer
   }
 
-  get publicKey () {
-    return SigningKey.computePublicKey(this.#privateKeyBuffer)
+  get compressedPublicKey () {
+    return secp256k1.getPublicKey(this.#privateKeyBuffer, true)
   }
 
-  get compressedPublicKey () {
-    return SigningKey.computePublicKey(this.#privateKeyBuffer, true)
+  get publicKey () {
+    return secp256k1.getPublicKey(this.#privateKeyBuffer, false)
   }
 
   sign (message) {

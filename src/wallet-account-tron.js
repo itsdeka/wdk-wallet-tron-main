@@ -52,7 +52,6 @@ export default class WalletAccountTron {
   #privateKeyBuffer
   #hmacOutputBuffer
   #derivationDataBuffer
-  #backupBuffer
 
   /**
    * Creates a new tron wallet account.
@@ -75,7 +74,6 @@ export default class WalletAccountTron {
     this.#privateKeyBuffer = new Uint8Array(32)
     this.#hmacOutputBuffer = new Uint8Array(64)
     this.#derivationDataBuffer = new Uint8Array(37)
-    this.#backupBuffer = new Uint8Array(32)
 
     derivePrivateKeyBuffer(seedBuffer, this.#privateKeyBuffer, this.#hmacOutputBuffer, this.#derivationDataBuffer, fullPath)
 
@@ -118,16 +116,17 @@ export default class WalletAccountTron {
    * @type {string}
    */
   get address () {
-    // Hash the public key with keccak256
-    const hashed = keccak256(this.#signingKey.publicKey)
-    
-    // Take last 20 bytes and prepend Tron's address prefix (0x41)
-    const addressBytes = new Uint8Array(21)
-    addressBytes[0] = 0x41 // Tron address prefix
-    addressBytes.set(hashed.slice(-20), 1)
-    
-    // Convert to hex string
-    return this.#tronWeb.address.fromHex('41' + Buffer.from(addressBytes.slice(1)).toString('hex'))
+    const pubKey = this.#signingKey.publicKey
+    // Remove the prefix byte (0x04) from uncompressed public key
+    const pubKeyNoPrefix = pubKey.slice(1)
+    // Compute keccak-256 hash
+    const hash = keccak256(pubKeyNoPrefix)
+    // Take last 20 bytes
+    const ethAddress = hash.slice(12)
+    // Convert to hex
+    const ethAddressHex = '41' + Buffer.from(ethAddress).toString('hex')
+    // Convert to base58
+    return this.#tronWeb.address.fromHex(ethAddressHex)
   }
 
   /**
@@ -372,12 +371,10 @@ export default class WalletAccountTron {
     sodium.sodium_memzero(this.#privateKeyBuffer)
     sodium.sodium_memzero(this.#hmacOutputBuffer)
     sodium.sodium_memzero(this.#derivationDataBuffer)
-    sodium.sodium_memzero(this.#backupBuffer)
 
     this.#privateKeyBuffer = null
     this.#hmacOutputBuffer = null
     this.#derivationDataBuffer = null
-    this.#backupBuffer = null
     this.#signingKey = null
     this.#tronWeb = null
   }
