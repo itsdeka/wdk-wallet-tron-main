@@ -73,8 +73,8 @@ export class CustomTronHDWallet {
   }
 
   signTypedData (Permit712MessageDomain, Permit712MessageTypes, message) {
-    const messageDigest = TronWeb.TypedDataEncoder.hash(Permit712MessageDomain, Permit712MessageTypes, message)
-    return this.#signingKey.sign(messageDigest)
+    const messageDigest = this.#tronWeb.utils._TypedDataEncoder.hash(Permit712MessageDomain, Permit712MessageTypes, message)
+    return this.#signingKey.sign(messageDigest.slice(2))
   }
 
   async signTransaction (transaction) {
