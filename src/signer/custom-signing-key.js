@@ -44,6 +44,10 @@ export class CustomSigningKey extends SigningKey {
     return secp256k1.getPublicKey(this.#privateKeyBuffer, false)
   }
 
+  /**
+   * Sign a message hash
+   * @param {string} digest - hex string of the message hash to sign
+   */
   sign (message) {
     const signature = secp256k1.sign(message, this.#privateKeyBuffer)
     return '0x' + signature.r.toString(16).padStart(64, '0') + signature.s.toString(16).padStart(64, '0') + (signature.recovery ? '1c' : '1b')
