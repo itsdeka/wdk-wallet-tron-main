@@ -19,7 +19,6 @@ import { SigningKey } from 'ethers'
 
 export class CustomSigningKey extends SigningKey {
   #privateKeyBuffer
-  #tronWeb
 
   constructor (privateKeyBuffer) {
     if (!(privateKeyBuffer instanceof Uint8Array)) {
