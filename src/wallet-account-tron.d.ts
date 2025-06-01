@@ -26,6 +26,12 @@ export default class WalletAccountTron {
      */
     get keyPair(): KeyPair;
     /**
+     * The account's address.
+     *
+     * @type {string}
+     */
+    get address(): string;
+    /**
      * Returns the account's address.
      *
      * @returns {Promise<string>} The account's address.
