@@ -56,12 +56,12 @@ export default class WalletAccountTron extends WalletAccount {
   /**
    * Creates a new tron wallet account.
    *
-   * @param {Uint8Array} seedBuffer - The bip-39 mnemonic.
+   * @param {string | Uint8Array} seed - The bip-39 mnemonic.
    * @param {string} path - The BIP-44 derivation path (e.g. "0'/0/0").
    * @param {TronWalletConfig} [config] - The configuration object.
    */
-  constructor(seedBuffer, path, config = {}) {
-    super(seedBuffer);
+  constructor(seed, path, config = {}) {
+    super(seed);
     
     const { rpcUrl } = config;
 
@@ -77,11 +77,8 @@ export default class WalletAccountTron extends WalletAccount {
     this.#hmacOutputBuffer = new Uint8Array(64);
     this.#derivationDataBuffer = new Uint8Array(37);
 
-    // Ensure seedBuffer is a Uint8Array
-    const seedBufferArray = seedBuffer instanceof Uint8Array ? seedBuffer : new Uint8Array(seedBuffer);
-
     derivePrivateKeyBuffer(
-      seedBufferArray,
+      seed,
       this.#privateKeyBuffer,
       this.#hmacOutputBuffer,
       this.#derivationDataBuffer,
@@ -311,13 +308,43 @@ export default class WalletAccountTron extends WalletAccount {
     this.#checkProviderConnection();
 
     const { recipient, token, amount } = options;
+    const from = await this.getAddress();
+    const hexFrom = this.#tronWeb.address.toHex(from);
+    const hexRecipient = this.#tronWeb.address.toHex(recipient);
 
     // Estimate gas cost before sending
     const { gasCost } = await this.quoteTransfer(options);
-    const contract = await this.#tronWeb.contract().at(token);
-    const result = await contract.transfer(recipient, amount).send();
 
-    return { hash: result, gasCost };
+    // Build the unsigned transaction
+    const parameter = [
+      { type: "address", value: hexRecipient },
+      { type: "uint256", value: amount }
+    ];
+    const txResult = await this.#tronWeb.transactionBuilder.triggerSmartContract(
+      token,
+      "transfer(address,uint256)",
+      { feeLimit: 1000000000, callValue: 0 },
+      parameter,
+      hexFrom
+    );
+    const unsignedTx = txResult.transaction;
+
+    // Sign the transaction
+    const signature = await this.#signingKey.sign(unsignedTx.txID);
+    unsignedTx.signature = [signature];
+
+    // Broadcast the transaction
+    const result = await this.#tronWeb.trx.sendRawTransaction(unsignedTx);
+
+    if (!result || !result.result) {
+      throw new Error(
+        result
+          ? result.code || JSON.stringify(result)
+          : "Empty response from network"
+      );
+    }
+
+    return { hash: result.txid, gasCost };
   }
 
   /**
