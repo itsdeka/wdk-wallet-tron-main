@@ -17,15 +17,15 @@
 import TronWeb from "tronweb";
 import { getBytesCopy } from "ethers";
 import sodium from "sodium-universal";
+import WalletAccount from '@wdk/wallet'
 import { keccak_256 as keccak256 } from "@noble/hashes/sha3";
 import { CustomSigningKey } from "./signer/custom-signing-key.js";
 import { derivePrivateKeyBuffer } from "./signer/utils.js";
 
-/**
- * @typedef {Object} KeyPair
- * @property {Uint8Array} publicKey - The public key.
- * @property {Uint8Array} privateKey - The private key.
- */
+/** @typedef {import('@wdk/wallet').KeyPair} KeyPair */
+/** @typedef {import('@wdk/wallet').TransferOptions} TransferOptions */
+/** @typedef {import('@wdk/wallet').TransactionResult} TransactionResult */
+/** @typedef {import('@wdk/wallet').TransferResult} TransferResult */
 
 /**
  * @typedef {Object} TronTransaction
@@ -45,7 +45,7 @@ import { derivePrivateKeyBuffer } from "./signer/utils.js";
 
 const BIP_44_TRON_DERIVATION_PATH_PREFIX = "m/44'/195'";
 
-export default class WalletAccountTron {
+export default class WalletAccountTron extends WalletAccount {
   #signingKey;
   #path;
   #tronWeb;
@@ -61,6 +61,8 @@ export default class WalletAccountTron {
    * @param {TronWalletConfig} [config] - The configuration object.
    */
   constructor(seedBuffer, path, config = {}) {
+    super(seedBuffer);
+    
     const { rpcUrl } = config;
 
     this.#tronWeb = new TronWeb({
@@ -75,8 +77,11 @@ export default class WalletAccountTron {
     this.#hmacOutputBuffer = new Uint8Array(64);
     this.#derivationDataBuffer = new Uint8Array(37);
 
+    // Ensure seedBuffer is a Uint8Array
+    const seedBufferArray = seedBuffer instanceof Uint8Array ? seedBuffer : new Uint8Array(seedBuffer);
+
     derivePrivateKeyBuffer(
-      seedBuffer,
+      seedBufferArray,
       this.#privateKeyBuffer,
       this.#hmacOutputBuffer,
       this.#derivationDataBuffer,

@@ -16,6 +16,7 @@
 
 import TronWeb from "tronweb";
 import sodium from "sodium-universal";
+import WalletManager from '@wdk/wallet'
 import WalletAccountTron from "./wallet-account-tron.js";
 
 const FEE_RATE_NORMAL_MULTIPLIER = 1.1;
@@ -23,10 +24,10 @@ const FEE_RATE_FAST_MULTIPLIER = 2.0;
 
 /** @typedef {import('./wallet-account-tron.js').TronWalletConfig} TronWalletConfig */
 
-export default class WalletManagerTron {
-  #seedBuffer;
+export default class WalletManagerTron extends WalletManager {
   #tronWeb;
   #accounts;
+  #seedBuffer;
 
   /**
    * Creates a new wallet manager for tron blockchains.
@@ -35,7 +36,9 @@ export default class WalletManagerTron {
    * @param {TronWalletConfig} [config] - The configuration object.
    */
   constructor(seedBuffer, config = {}) {
-    this.#seedBuffer = seedBuffer;
+    super(seedBuffer);
+    // Store original seedBuffer after super() call
+    this.#seedBuffer = seedBuffer instanceof Uint8Array ? seedBuffer : new Uint8Array(seedBuffer);
     this.#accounts = new Set();
 
     const { rpcUrl } = config;
@@ -43,39 +46,6 @@ export default class WalletManagerTron {
     this.#tronWeb = new TronWeb({
       fullHost: rpcUrl || "https://api.trongrid.io",
     });
-  }
-
-  /**
-   * Returns a random [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase.
-   *
-   * @returns {string} The seed phrase.
-   */
-  static getRandomSeedPhrase() {
-    return TronWeb.createRandom().mnemonic.phrase;
-  }
-
-  /**
-   * Checks if a seed phrase is valid.
-   *
-   * @param {string} seedPhrase - The seed phrase.
-   * @returns {boolean} True if the seed phrase is valid.
-   */
-  static isValidSeedPhrase(seedPhrase) {
-    try {
-      TronWeb.fromMnemonic(seedPhrase);
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
-
-  /**
-   * The seed of the wallet.
-   *
-   * @type {Uint8Array}
-   */
-  get seedBuffer() {
-    return this.#seedBuffer;
   }
 
   /**
@@ -150,7 +120,6 @@ export default class WalletManagerTron {
     this.#accounts.clear();
 
     sodium.sodium_memzero(this.#seedBuffer);
-
     this.#seedBuffer = null;
     this.#tronWeb = null;
   }

@@ -1,31 +1,12 @@
 /** @typedef {import('./wallet-account-tron.js').TronWalletConfig} TronWalletConfig */
 export default class WalletManagerTron {
   /**
-   * Returns a random [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase.
-   *
-   * @returns {string} The seed phrase.
-   */
-  static getRandomSeedPhrase(): string;
-  /**
-   * Checks if a seed phrase is valid.
-   *
-   * @param {string} seedPhrase - The seed phrase.
-   * @returns {boolean} True if the seed phrase is valid.
-   */
-  static isValidSeedPhrase(seedPhrase: string): boolean;
-  /**
    * Creates a new wallet manager for tron blockchains.
    *
    * @param {Uint8Array} seedBuffer - Uint8Array seedBuffer buffer.
    * @param {TronWalletConfig} [config] - The configuration object.
    */
   constructor(seedBuffer: Uint8Array, config?: TronWalletConfig);
-  /**
-   * The seed of the wallet.
-   *
-   * @type {Uint8Array}
-   */
-  get seedBuffer(): Uint8Array;
   /**
    * Returns the wallet account at a specific index (see [BIP-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki)).
    *
