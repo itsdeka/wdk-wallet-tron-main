@@ -123,27 +123,28 @@ async function runTests() {
       const recipientAddress = "TWcBKmZpttULdr9qN4ktr6YZG7YUSZizjh";
       const amount = 1000000; // 1 TRX (in sun)
 
-      const quote = await account.quoteTransaction({
+      const quote = await account.quoteSendTransaction({
         to: recipientAddress,
         value: amount,
       });
-      console.log(`✓ Transaction quote: ${quote} sun\n`);
+      console.log(`✓ Transaction quote: ${quote.fee} sun\n`);
     } catch (error) {
       console.log(`! Quote test failed: ${error.message}\n`);
     }
 
     // Test 14: Send Transaction
-
     console.log("Test 14: Send Transaction...");
     try {
       const recipientAddress = "TWcBKmZpttULdr9qN4ktr6YZG7YUSZizjh";
       const amount = 1000000; // 1 TRX (in sun)
 
-      const txHash = await account.sendTransaction({
+      const result = await account.sendTransaction({
         to: recipientAddress,
         value: amount,
       });
-      console.log(`✓ Transaction sent! Hash: ${txHash}\n`);
+      console.log(
+        `✓ Transaction sent! Hash: ${result.hash}, Fee: ${result.fee} sun\n`
+      );
     } catch (error) {
       console.log(`! Send transaction test failed: ${error.message}\n`);
     }
@@ -159,8 +160,7 @@ async function runTests() {
         token: usdtContractAddress,
         amount: amount,
       });
-      console.log(`✓ Hash transfer quote: ${quote.hash}`);
-      console.log(`✓ Token transfer quote: ${quote.gasCost} sun\n`);
+      console.log(`✓ Token transfer quote: ${quote.fee} sun\n`);
     } catch (error) {
       console.log(`! Quote token transfer test failed: ${error.message}\n`);
     }
@@ -177,7 +177,7 @@ async function runTests() {
         amount: amount,
       });
       console.log(
-        `✓ Token transfer sent! Hash: ${result.hash}, Gas cost: ${result.gasCost}\n`
+        `✓ Token transfer sent! Hash: ${result.hash}, Fee: ${result.fee} sun\n`
       );
     } catch (error) {
       console.log(`! Token transfer test failed: ${error.message}\n`);
