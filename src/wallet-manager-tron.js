@@ -27,18 +27,15 @@ const FEE_RATE_FAST_MULTIPLIER = 2.0;
 export default class WalletManagerTron extends WalletManager {
   #tronWeb;
   #accounts;
-  #seedBuffer;
 
   /**
    * Creates a new wallet manager for tron blockchains.
    *
-   * @param {Uint8Array} seedBuffer - Uint8Array seedBuffer buffer.
+   * @param {string | Uint8Array} seed - The bip-39 mnemonic.
    * @param {TronWalletConfig} [config] - The configuration object.
    */
-  constructor(seedBuffer, config = {}) {
-    super(seedBuffer);
-    // Store original seedBuffer after super() call
-    this.#seedBuffer = seedBuffer instanceof Uint8Array ? seedBuffer : new Uint8Array(seedBuffer);
+  constructor(seed, config = {}) {
+    super(seed);
     this.#accounts = new Set();
 
     const { rpcUrl } = config;
@@ -73,7 +70,7 @@ export default class WalletManagerTron extends WalletManager {
    * @returns {Promise<WalletAccountTron>} The account.
    */
   async getAccountByPath(path) {
-    const account = new WalletAccountTron(this.#seedBuffer, path, {
+    const account = new WalletAccountTron(this.seed, path, {
       rpcUrl: this.#tronWeb.fullNode.host,
     });
     this.#accounts.add(account);
@@ -119,8 +116,8 @@ export default class WalletManagerTron extends WalletManager {
     for (const account of this.#accounts) account.close();
     this.#accounts.clear();
 
-    sodium.sodium_memzero(this.#seedBuffer);
-    this.#seedBuffer = null;
+    sodium.sodium_memzero(this.seed);
+    this.seed = null;
     this.#tronWeb = null;
   }
 }
