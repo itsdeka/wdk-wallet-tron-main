@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-'use strict'
+"use strict";
 
-import TronWeb from 'tronweb'
-import sodium from 'sodium-universal'
-import WalletAccountTron from './wallet-account-tron.js'
+import TronWeb from "tronweb";
+import sodium from "sodium-universal";
+import WalletAccountTron from "./wallet-account-tron.js";
 
-const FEE_RATE_NORMAL_MULTIPLIER = 1.1
-const FEE_RATE_FAST_MULTIPLIER = 2.0
+const FEE_RATE_NORMAL_MULTIPLIER = 1.1;
+const FEE_RATE_FAST_MULTIPLIER = 2.0;
 
 /** @typedef {import('./wallet-account-tron.js').TronWalletConfig} TronWalletConfig */
 
 export default class WalletManagerTron {
-  #seedBuffer
-  #tronWeb
-  #accounts
+  #seedBuffer;
+  #tronWeb;
+  #accounts;
 
   /**
    * Creates a new wallet manager for tron blockchains.
@@ -34,15 +34,15 @@ export default class WalletManagerTron {
    * @param {Uint8Array} seedBuffer - Uint8Array seedBuffer buffer.
    * @param {TronWalletConfig} [config] - The configuration object.
    */
-  constructor (seedBuffer, config = {}) {
-    this.#seedBuffer = seedBuffer
-    this.#accounts = new Set()
+  constructor(seedBuffer, config = {}) {
+    this.#seedBuffer = seedBuffer;
+    this.#accounts = new Set();
 
-    const { rpcUrl } = config
+    const { rpcUrl } = config;
 
     this.#tronWeb = new TronWeb({
-      fullHost: rpcUrl || 'https://api.trongrid.io'
-    })
+      fullHost: rpcUrl || "https://api.trongrid.io",
+    });
   }
 
   /**
@@ -50,8 +50,8 @@ export default class WalletManagerTron {
    *
    * @returns {string} The seed phrase.
    */
-  static getRandomSeedPhrase () {
-    return TronWeb.createRandom().mnemonic.phrase
+  static getRandomSeedPhrase() {
+    return TronWeb.createRandom().mnemonic.phrase;
   }
 
   /**
@@ -60,12 +60,12 @@ export default class WalletManagerTron {
    * @param {string} seedPhrase - The seed phrase.
    * @returns {boolean} True if the seed phrase is valid.
    */
-  static isValidSeedPhrase (seedPhrase) {
+  static isValidSeedPhrase(seedPhrase) {
     try {
-      TronWeb.fromMnemonic(seedPhrase)
-      return true
+      TronWeb.fromMnemonic(seedPhrase);
+      return true;
     } catch (error) {
-      return false
+      return false;
     }
   }
 
@@ -74,8 +74,8 @@ export default class WalletManagerTron {
    *
    * @type {Uint8Array}
    */
-  get seedBuffer () {
-    return this.#seedBuffer
+  get seedBuffer() {
+    return this.#seedBuffer;
   }
 
   /**
@@ -87,10 +87,10 @@ export default class WalletManagerTron {
    * @param {number} [index] - The index of the account to get (default: 0).
    * @returns {Promise<WalletAccountTron>} The account.
    */
-  async getAccount (index = 0) {
-    const account = await this.getAccountByPath(`0'/0/${index}`)
-    this.#accounts.add(account)
-    return account
+  async getAccount(index = 0) {
+    const account = await this.getAccountByPath(`0'/0/${index}`);
+    this.#accounts.add(account);
+    return account;
   }
 
   /**
@@ -102,12 +102,12 @@ export default class WalletManagerTron {
    * @param {string} path - The derivation path (e.g. "0'/0/0").
    * @returns {Promise<WalletAccountTron>} The account.
    */
-  async getAccountByPath (path) {
+  async getAccountByPath(path) {
     const account = new WalletAccountTron(this.#seedBuffer, path, {
-      rpcUrl: this.#tronWeb.fullNode.host
-    })
-    this.#accounts.add(account)
-    return account
+      rpcUrl: this.#tronWeb.fullNode.host,
+    });
+    this.#accounts.add(account);
+    return account;
   }
 
   /**
@@ -115,43 +115,43 @@ export default class WalletManagerTron {
    *
    * @returns {Promise<{ normal: number, fast: number }>} The fee rates (in sun).
    */
-  async getFeeRates () {
+  async getFeeRates() {
     if (!this.#tronWeb.fullNode.host) {
       throw new Error(
-        'The wallet must be connected to a provider to get fee rates'
-      )
+        "The wallet must be connected to a provider to get fee rates"
+      );
     }
 
-    const chainParameters = await this.#tronWeb.trx.getChainParameters()
+    const chainParameters = await this.#tronWeb.trx.getChainParameters();
 
     // Get fee parameters
     const getTransactionFee = chainParameters.find(
-      (param) => param.key === 'getTransactionFee'
-    )
+      (param) => param.key === "getTransactionFee"
+    );
 
     // Base transaction fee
-    const baseFee = Number(getTransactionFee.value)
+    const baseFee = Number(getTransactionFee.value);
 
     // Calculate fee rates using multipliers
-    const normal = Math.round(baseFee * FEE_RATE_NORMAL_MULTIPLIER)
-    const fast = Math.round(baseFee * FEE_RATE_FAST_MULTIPLIER)
+    const normal = Math.round(baseFee * FEE_RATE_NORMAL_MULTIPLIER);
+    const fast = Math.round(baseFee * FEE_RATE_FAST_MULTIPLIER);
 
     return {
       normal,
-      fast
-    }
+      fast,
+    };
   }
 
   /**
    * Close the wallet manager and erase the seed buffer.
    */
-  close () {
-    for (const account of this.#accounts) account.close()
-    this.#accounts.clear()
+  close() {
+    for (const account of this.#accounts) account.close();
+    this.#accounts.clear();
 
-    sodium.sodium_memzero(this.#seedBuffer)
+    sodium.sodium_memzero(this.#seedBuffer);
 
-    this.#seedBuffer = null
-    this.#tronWeb = null
+    this.#seedBuffer = null;
+    this.#tronWeb = null;
   }
 }
