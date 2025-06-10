@@ -368,7 +368,7 @@ export default class WalletAccountTron extends WalletAccount {
       transaction.transaction.raw_data_hex
     );
 
-    return { hash: null,fee };
+    return { hash: null, fee };
   }
 
   /**

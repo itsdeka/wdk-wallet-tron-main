@@ -142,7 +142,9 @@ async function runTests() {
         to: recipientAddress,
         value: amount,
       });
-      console.log(`✓ Transaction sent! Hash: ${result.hash}, Fee: ${result.fee} sun\n`);
+      console.log(
+        `✓ Transaction sent! Hash: ${result.hash}, Fee: ${result.fee} sun\n`
+      );
     } catch (error) {
       console.log(`! Send transaction test failed: ${error.message}\n`);
     }

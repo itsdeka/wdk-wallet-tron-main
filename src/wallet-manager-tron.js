@@ -16,7 +16,7 @@
 
 import TronWeb from "tronweb";
 import sodium from "sodium-universal";
-import WalletManager from '@wdk/wallet'
+import WalletManager from "@wdk/wallet";
 import WalletAccountTron from "./wallet-account-tron.js";
 
 const FEE_RATE_NORMAL_MULTIPLIER = 1.1;
