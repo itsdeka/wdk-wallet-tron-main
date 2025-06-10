@@ -31,7 +31,7 @@ export default class WalletManagerTron extends WalletManager {
   /**
    * Creates a new wallet manager for tron blockchains.
    *
-   * @param {string | Uint8Array} seed - The bip-39 mnemonic.
+   * @param {string | Uint8Array} seed - The wallet's BIP-39 seed phrase.
    * @param {TronWalletConfig} [config] - The configuration object.
    */
   constructor(seed, config = {}) {
@@ -110,10 +110,10 @@ export default class WalletManagerTron extends WalletManager {
   }
 
   /**
-   * Close the wallet manager and erase the seed buffer.
+   * Disposes all the wallet accounts, and erases their private keys from the memory.
    */
-  close() {
-    for (const account of this.#accounts) account.close();
+  dispose() {
+    for (const account of this.#accounts) account.dispose();
     this.#accounts.clear();
 
     sodium.sodium_memzero(this.seed);

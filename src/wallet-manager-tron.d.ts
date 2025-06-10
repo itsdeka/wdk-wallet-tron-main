@@ -1,12 +1,21 @@
 /** @typedef {import('./wallet-account-tron.js').TronWalletConfig} TronWalletConfig */
+import WalletAccountTron, { TronWalletConfig } from "./wallet-account-tron.js";
+
 export default class WalletManagerTron {
   /**
    * Creates a new wallet manager for tron blockchains.
    *
-   * @param {Uint8Array} seedBuffer - Uint8Array seedBuffer buffer.
+   * @param {string | Uint8Array} seed - The wallet's BIP-39 seed phrase.
    * @param {TronWalletConfig} [config] - The configuration object.
    */
-  constructor(seedBuffer: Uint8Array, config?: TronWalletConfig);
+  constructor(seed: string | Uint8Array, config?: TronWalletConfig);
+
+  /**
+   * The seed phrase of the wallet.
+   * @type {string | Uint8Array}
+   */
+  seed: string | Uint8Array;
+
   /**
    * Returns the wallet account at a specific index (see [BIP-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki)).
    *
@@ -17,6 +26,7 @@ export default class WalletManagerTron {
    * @returns {Promise<WalletAccountTron>} The account.
    */
   getAccount(index?: number): Promise<WalletAccountTron>;
+
   /**
    * Returns the wallet account at a specific BIP-44 derivation path.
    *
@@ -27,6 +37,7 @@ export default class WalletManagerTron {
    * @returns {Promise<WalletAccountTron>} The account.
    */
   getAccountByPath(path: string): Promise<WalletAccountTron>;
+
   /**
    * Returns the current fee rates.
    *
@@ -36,12 +47,5 @@ export default class WalletManagerTron {
     normal: number;
     fast: number;
   }>;
-  /**
-   * Close the wallet manager and erase the seed buffer.
-   */
-  close(): void;
   #private;
 }
-export type TronWalletConfig =
-  import("./wallet-account-tron.js").TronWalletConfig;
-import WalletAccountTron from "./wallet-account-tron.js";

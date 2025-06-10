@@ -17,26 +17,15 @@
 import TronWeb from "tronweb";
 import { getBytesCopy } from "ethers";
 import sodium from "sodium-universal";
-import WalletAccount from '@wdk/wallet'
+import WalletAccount from "@wdk/wallet";
 import { keccak_256 as keccak256 } from "@noble/hashes/sha3";
 import { CustomSigningKey } from "./signer/custom-signing-key.js";
 import { derivePrivateKeyBuffer } from "./signer/utils.js";
 
-/** @typedef {import('@wdk/wallet').KeyPair} KeyPair */
-/** @typedef {import('@wdk/wallet').TransferOptions} TransferOptions */
-/** @typedef {import('@wdk/wallet').TransactionResult} TransactionResult */
-/** @typedef {import('@wdk/wallet').TransferResult} TransferResult */
-
-/**
- * @typedef {Object} TronTransaction
- * @property {string} to - The transaction's recipient.
- * @property {number} value - The amount of TRX to send to the recipient (in sun).
- * @property {string} [data] - The transaction's data in hex format.
- * @property {number} [gasLimit] - The maximum amount of gas this transaction is permitted to use.
- * @property {number} [gasPrice] - The price (in wei) per unit of gas this transaction will pay.
- * @property {number} [maxFeePerGas] - The maximum price (in wei) per unit of gas this transaction will pay for the combined [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) block's base fee and this transaction's priority fee.
- * @property {number} [maxPriorityFeePerGas] - The price (in wei) per unit of gas this transaction will allow in addition to the [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) block's base fee to bribe miners into giving this transaction priority. This is included in the maxFeePerGas, so this will not affect the total maximum cost set with maxFeePerGas.
- */
+/** @typedef {import('./wallet-account-tron.d.ts').TronTransactionResult} TronTransactionResult */
+/** @typedef {import('./wallet-account-tron.d.ts').TronTransaction} TronTransaction */
+/** @typedef {import('./wallet-account-tron.d.ts').TronTransferOptions} TronTransferOptions */
+/** @typedef {import('./wallet-account-tron.d.ts').TronTransferResult} TronTransferResult */
 
 /**
  * @typedef {Object} TronWalletConfig
@@ -62,7 +51,7 @@ export default class WalletAccountTron extends WalletAccount {
    */
   constructor(seed, path, config = {}) {
     super(seed);
-    
+
     const { rpcUrl } = config;
 
     this.#tronWeb = new TronWeb({
@@ -130,11 +119,11 @@ export default class WalletAccountTron extends WalletAccount {
     // Compute keccak-256 hash
     const hash = keccak256(pubKeyNoPrefix);
     // Take last 20 bytes
-    const ethAddress = hash.slice(12);
-    // Convert to hex
-    const ethAddressHex = "41" + Buffer.from(ethAddress).toString("hex");
+    const tronAddress = hash.slice(12);
+    // Convert to hex with Tron prefix (41)
+    const tronAddressHex = "41" + Buffer.from(tronAddress).toString("hex");
     // Convert to base58
-    return this.#tronWeb.address.fromHex(ethAddressHex);
+    return this.#tronWeb.address.fromHex(tronAddressHex);
   }
 
   /**
@@ -153,7 +142,7 @@ export default class WalletAccountTron extends WalletAccount {
    * Calculates transaction cost based on bandwidth consumption.
    * @private
    * @param {string} rawDataHex - The raw transaction data in hex format
-   * @returns {Promise<number>} The transaction cost in sun
+   * @returns {Promise<number>} The transaction cost in sun (1 TRX = 1,000,000 sun)
    */
   async #calculateTransactionCost(rawDataHex) {
     const from = await this.getAddress();
@@ -232,13 +221,10 @@ export default class WalletAccountTron extends WalletAccount {
       return false;
     }
   }
-
   /**
-   * Sends a transaction with arbitrary data.
-   *
-   * @param {TronTransaction} tx - The transaction to send.
-   * @returns {Promise<string>} The transaction's hash.
-   * @throws {Error} If the transaction fails or returns invalid data.
+   * Sends a transaction.
+   * @param {TronTransaction} tx - The transaction.
+   * @returns {Promise<TronTransactionResult>} The send transaction's result.
    */
   async sendTransaction(tx) {
     this.#checkProviderConnection();
@@ -252,6 +238,11 @@ export default class WalletAccountTron extends WalletAccount {
         to,
         value,
         from
+      );
+
+      // Calculate fee before sending
+      const fee = await this.#calculateTransactionCost(
+        transaction.raw_data_hex
       );
 
       // Sign using our custom wallet's signTransaction method
@@ -270,7 +261,7 @@ export default class WalletAccountTron extends WalletAccount {
         );
       }
 
-      return result.txid;
+      return { hash: result.txid, fee };
     } catch (error) {
       throw new Error(
         `Failed to send transaction: ${error.message || JSON.stringify(error)}`
@@ -282,9 +273,9 @@ export default class WalletAccountTron extends WalletAccount {
    * Quotes a transaction.
    *
    * @param {TronTransaction} tx - The transaction to quote.
-   * @returns {Promise<number>} The transaction's fee (in sun).
+   * @returns {Promise<Omit<TronTransactionResult, "hash">>} The transaction's quotes.
    */
-  async quoteTransaction(tx) {
+  async quoteSendTransaction(tx) {
     this.#checkProviderConnection();
 
     const { to, value } = tx;
@@ -296,7 +287,8 @@ export default class WalletAccountTron extends WalletAccount {
       from
     );
 
-    return this.#calculateTransactionCost(transaction.raw_data_hex);
+    const fee = await this.#calculateTransactionCost(transaction.raw_data_hex);
+    return { hash: null, fee };
   }
 
   /**
@@ -312,21 +304,22 @@ export default class WalletAccountTron extends WalletAccount {
     const hexFrom = this.#tronWeb.address.toHex(from);
     const hexRecipient = this.#tronWeb.address.toHex(recipient);
 
-    // Estimate gas cost before sending
-    const { gasCost } = await this.quoteTransfer(options);
+    // Estimate fee before sending
+    const { fee } = await this.quoteTransfer(options);
 
     // Build the unsigned transaction
     const parameter = [
       { type: "address", value: hexRecipient },
-      { type: "uint256", value: amount }
+      { type: "uint256", value: amount },
     ];
-    const txResult = await this.#tronWeb.transactionBuilder.triggerSmartContract(
-      token,
-      "transfer(address,uint256)",
-      { feeLimit: 1000000000, callValue: 0 },
-      parameter,
-      hexFrom
-    );
+    const txResult =
+      await this.#tronWeb.transactionBuilder.triggerSmartContract(
+        token,
+        "transfer(address,uint256)",
+        { feeLimit: 1000000000, callValue: 0 },
+        parameter,
+        hexFrom
+      );
     const unsignedTx = txResult.transaction;
 
     // Sign the transaction
@@ -344,14 +337,13 @@ export default class WalletAccountTron extends WalletAccount {
       );
     }
 
-    return { hash: result.txid, gasCost };
+    return { hash: result.txid, fee };
   }
 
   /**
    * Quotes the costs of a transfer operation.
-   * @see {@link transfer}
    * @param {TronTransferOptions} options - The transfer's options.
-   * @returns {Promise<{gasCost: number}>} The transfer's quotes.
+   * @returns {Promise<Omit<TronTransferResult, "hash">>} The transfer's quotes.
    */
   async quoteTransfer(options) {
     this.#checkProviderConnection();
@@ -372,11 +364,11 @@ export default class WalletAccountTron extends WalletAccount {
         from
       );
 
-    const gasCost = await this.#calculateTransactionCost(
+    const fee = await this.#calculateTransactionCost(
       transaction.transaction.raw_data_hex
     );
 
-    return { hash: null, gasCost };
+    return { hash: null,fee };
   }
 
   /**
@@ -461,10 +453,9 @@ export default class WalletAccountTron extends WalletAccount {
   }
 
   /**
-   * Close the wallet account, erase all sensitive buffers, and cleanup provider connections.
-   * @returns {Promise<void>}
+   * Disposes the wallet account, and erases the private key from the memory.
    */
-  close() {
+  dispose() {
     sodium.sodium_memzero(this.#privateKeyBuffer);
     sodium.sodium_memzero(this.#hmacOutputBuffer);
     sodium.sodium_memzero(this.#derivationDataBuffer);
