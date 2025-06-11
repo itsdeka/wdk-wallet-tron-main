@@ -17,7 +17,7 @@ import { mnemonicToSeedSync } from "bip39";
 
 // Use your Tron account seed phrase here
 const TEST_SEED_PHRASE =
-  "between oval abandon quantum heavy stable guess limb ring hobby surround wall"; // TODO: Replace this with your actual Shasta testnet seed phrase that has 2000 TRX
+  "between oval abandon quantum heavy stable guess limb ring hobby surround wall";
 console.log("Using seed phrase:", TEST_SEED_PHRASE);
 
 const seedBuffer = mnemonicToSeedSync(TEST_SEED_PHRASE);
